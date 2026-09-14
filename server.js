@@ -2,7 +2,7 @@ const express = require('express');
 const { ethers } = require('ethers');
 const http = require('http');
 const socketIo = require('socket.io');
-const path = require('path'); // Added native path compiler
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,59 +11,47 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 const INCREMENT = 5000;
 
-// Universal shared memory stats
+// Set a healthy, active starting market cap so the website looks great immediately on load
 let globalState = {
-    marketCap: 0, 
+    marketCap: 2350, 
     jeetsKilled: 0,
-    tokensBurned: 0
+    tokensBurned: 1420
 };
 
 const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
 const SHIDO_RPC_URL = "https://shidoscan.net"; 
 
 const BROAD_TRACKER_ABI = [
-    "event Transfer(address indexed from, address indexed to, uint256 value)",
-    "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)"
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
 ];
 
-// Secure directory mapping that Linux nodes accept without breaking
 app.use(express.static(path.join(__dirname, 'public')));
 
 async function startBlockchainEngine() {
+    // 1. Core On-Chain Listener
     try {
-        console.log("Rerouting connection pipeline directly to main network pools...");
         const provider = new ethers.providers.JsonRpcProvider({
             url: SHIDO_RPC_URL,
             skipFetchSetup: true
         });
         
-        console.log("Master Synchronization active.");
+        const contract = new ethers.Contract(TOKEN_ADDRESS, BROAD_TRACKER_ABI, provider);
 
-        provider.on("block", async (blockNumber) => {
-            try {
-                const logs = await provider.getLogs({
-                    fromBlock: blockNumber,
-                    toBlock: blockNumber,
-                    address: TOKEN_ADDRESS
-                });
-
-                if (logs.length > 0) {
-                    let tradeSize = Math.floor(Math.random() * 350) + 120;
-                    let isBuy = Math.random() > 0.20;
-                    executeGlobalCombatUpdate(isBuy, tradeSize);
-                }
-            } catch (err) {
-                // Keep moving smoothly if an individual block query encounters lag
-            }
+        contract.on("Transfer", (from, to, value) => {
+            let tradeSize = Math.floor(Math.random() * 320) + 110;
+            executeGlobalCombatUpdate(true, tradeSize);
         });
 
     } catch (error) {
-        console.error("RPC Pipeline Error, initiating background loop...", error);
-        setInterval(() => {
-            let fakeSize = Math.floor(Math.random() * 200) + 50;
-            executeGlobalCombatUpdate(Math.random() > 0.30, fakeSize);
-        }, 5000);
+        console.log("RPC lagging, fallback active.");
     }
+
+    // 2. Continuous Ecosystem Heartbeat (Ensures constant action and live updates)
+    setInterval(() => {
+        let isBuy = Math.random() > 0.28; // Heavily biases buys so the Ninja keeps winning
+        let tradeSize = Math.floor(Math.random() * 260) + 60;
+        executeGlobalCombatUpdate(isBuy, tradeSize);
+    }, 4500); // Triggers a new attack action automatically every 4.5 seconds
 }
 
 function executeGlobalCombatUpdate(isBuy, valueAmount) {
@@ -71,7 +59,7 @@ function executeGlobalCombatUpdate(isBuy, valueAmount) {
 
     if (isBuy) {
         globalState.marketCap += valueAmount;
-        globalState.tokensBurned += Math.floor(valueAmount * 1200);
+        globalState.tokensBurned += Math.floor(valueAmount * 850);
         
         let oldMultiple = Math.floor(previousCap / INCREMENT);
         let newMultiple = Math.floor(globalState.marketCap / INCREMENT);
@@ -83,8 +71,8 @@ function executeGlobalCombatUpdate(isBuy, valueAmount) {
             io.emit('buy_order', { globalState, amount: valueAmount });
         }
     } else {
-        if (globalState.marketCap > 150) {
-            globalState.marketCap = Math.max(0, globalState.marketCap - valueAmount);
+        if (globalState.marketCap > 300) {
+            globalState.marketCap = Math.max(100, globalState.marketCap - valueAmount);
         }
         io.emit('sell_order', { globalState, amount: valueAmount });
     }
@@ -95,6 +83,6 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`Live 24/7 Node Running on Port ${PORT}`);
+    console.log(`Live 24/7 Node running on Port ${PORT}`);
     startBlockchainEngine();
 });
