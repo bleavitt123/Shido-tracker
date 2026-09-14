@@ -10,67 +10,67 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 const INCREMENT = 5000;
 
-// Set your starting launch market cap baseline so the dashboard looks populated instantly
+// Shared live network metrics state
 let globalState = {
-    marketCap: 2350, 
+    marketCap: 0, 
     jeetsKilled: 0,
-    tokensBurned: 145000
+    tokensBurned: 0
 };
 
 const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
 app.use(express.static(path.join(__dirname, 'public')));
 
-// HYBRID DATA CONTROLLER: Combines live APIs with an active blockchain event simulator
-async function trackingPipelineEngine() {
-    // 1. Attempt to sync with live data indexers in the background
+// 📡 STREAM DYNAMIC POOL METRICS DIRECTLY FROM DEXSCREENER REAL-TIME PIPELINES
+async function syncLiveDexData() {
     try {
-        const response = await fetch(`https://geckoterminal.com{TOKEN_ADDRESS}`);
+        const response = await fetch(`https://dexscreener.com{TOKEN_ADDRESS}`);
         const json = await response.json();
-        if (json && json.data && json.data.attributes && json.data.attributes.market_cap_usd) {
-            let apiCap = Math.floor(parseFloat(json.data.attributes.market_cap_usd));
-            if (apiCap > 0) {
-                globalState.marketCap = apiCap;
+        
+        if (json && json.pairs && json.pairs.length > 0) {
+            // Pull data straight from the primary active liquidity pool pair
+            const primaryPair = json.pairs[0];
+            let liveMarketCap = Math.floor(parseFloat(primaryPair.marketCap || 0));
+            
+            // Safety parsing baseline logic
+            if (liveMarketCap === 0 && primaryPair.priceUsd) {
+                const supply = 1000000000; // Total supply multiplier
+                liveMarketCap = Math.floor(parseFloat(primaryPair.priceUsd) * supply);
+            }
+
+            if (liveMarketCap > 0 && liveMarketCap !== globalState.marketCap) {
+                let previousCap = globalState.marketCap;
+                globalState.marketCap = liveMarketCap;
+                
+                // Track total jeets eliminated mathematically by checking structural 5k brackets
+                let oldMultiple = Math.floor(previousCap / INCREMENT);
+                let newMultiple = Math.floor(liveMarketCap / INCREMENT);
+                
+                // Approximate burn analytics relative to pool changes
+                globalState.tokensBurned += Math.abs(liveMarketCap - previousCap) * 500;
+
+                if (newMultiple > oldMultiple) {
+                    globalState.jeetsKilled = newMultiple;
+                    io.emit('boss_kill', { globalState, amount: (liveMarketCap - previousCap) });
+                } else if (liveMarketCap > previousCap) {
+                    io.emit('buy_order', { globalState, amount: (liveMarketCap - previousCap) });
+                } else if (liveMarketCap < previousCap) {
+                    io.emit('sell_order', { globalState, amount: (previousCap - liveMarketCap) });
+                }
             }
         }
-    } catch (e) {
-        // Keep moving smoothly if APIs are busy indexing the launch
-    }
-
-    // 2. High-speed transaction event engine (Ensures immediate action on the user UI screen)
-    let isBuyAction = Math.random() > 0.25; // High buy bias so the Ninja keeps winning
-    let tradeImpact = Math.floor(Math.random() * 240) + 70; 
-    
-    let previousCap = globalState.marketCap;
-
-    if (isBuyAction) {
-        globalState.marketCap += tradeImpact;
-        globalState.tokensBurned += Math.floor(tradeImpact * 900);
-        
-        let oldMultiple = Math.floor(previousCap / INCREMENT);
-        let newMultiple = Math.floor(globalState.marketCap / INCREMENT);
-        
-        if (newMultiple > oldMultiple) {
-            globalState.jeetsKilled++;
-            io.emit('boss_kill', { globalState, amount: tradeImpact });
-        } else {
-            io.emit('buy_order', { globalState, amount: tradeImpact });
-        }
-    } else {
-        if (globalState.marketCap > 500) {
-            globalState.marketCap = Math.max(200, globalState.marketCap - tradeImpact);
-        }
-        io.emit('sell_order', { globalState, amount: tradeImpact });
+    } catch (error) {
+        console.error("DexScreener API update delay:", error);
     }
 }
 
-// Keep the website highly active by checking and running actions every 4.5 seconds
-setInterval(trackingPipelineEngine, 4500);
+// Scans the decentralized exchange pool metrics loop continuously every 4 seconds
+setInterval(syncLiveDexData, 4000);
 
 io.on('connection', (socket) => {
-    // Instantly sync the global persistent state on connection so numbers never drop
     socket.emit('state_sync', globalState);
 });
 
 server.listen(PORT, () => {
-    console.log(`Live 24/7 Operations Hub online on port ${PORT}`);
+    console.log(`Live 24/7 DexScreener Event Router running on Port ${PORT}`);
+    syncLiveDexData();
 });
