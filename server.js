@@ -16,6 +16,7 @@ let globalState = {
     jeetsKilled: 0,
     tokensBurned: 0
 };
+app.use(express.static('public'));
 
 // Official Shido Smart Contract Settings
 const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
