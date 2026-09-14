@@ -1,0 +1,14 @@
+{
+  "name": "shido-jeet-cleaner-backend",
+  "version": "1.0.0",
+  "description": "24/7 On-Chain State Machine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ethers": "^5.7.2",
+    "socket.io": "^4.7.5"
+  }
+}
