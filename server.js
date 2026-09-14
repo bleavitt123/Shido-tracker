@@ -23,7 +23,8 @@ const SHIDO_RPC_URL = "https://shidoscan.net";
 
 // Complete Event ABI that tracks both raw tokens AND custom bonding curve router transactions
 const BROAD_TRACKER_ABI = [
-    "event Transfer(address indexed from, address indexed to, uint256 value)",
+app.use(express.static(__dirname + '/public'));
+
     "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)"
 ];
 
