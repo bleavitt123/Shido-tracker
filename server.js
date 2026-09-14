@@ -1,5 +1,4 @@
 const express = require('express');
-const { ethers } = require('ethers');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
@@ -11,78 +10,67 @@ const io = socketIo(server);
 const PORT = process.env.PORT || 3000;
 const INCREMENT = 5000;
 
-// Set a healthy, active starting market cap so the website looks great immediately on load
+// Central global tracking values
 let globalState = {
-    marketCap: 2350, 
+    marketCap: 0, 
     jeetsKilled: 0,
-    tokensBurned: 1420
+    tokensBurned: 0
 };
 
 const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
-const SHIDO_RPC_URL = "https://shidoscan.net"; 
-
-const BROAD_TRACKER_ABI = [
-    "event Transfer(address indexed from, address indexed to, uint256 value)"
-];
-
 app.use(express.static(path.join(__dirname, 'public')));
 
-async function startBlockchainEngine() {
-    // 1. Core On-Chain Listener
+// 📡 FETCH LIVE SWAP METRICS DIRECTLY FROM THE DEFI POOL APIS
+async function fetchLiveOnChainData() {
     try {
-        const provider = new ethers.providers.JsonRpcProvider({
-            url: SHIDO_RPC_URL,
-            skipFetchSetup: true
-        });
+        // Queries the explicit on-chain data registry for the token address
+        const response = await fetch(`https://geckoterminal.com{TOKEN_ADDRESS}`);
+        const json = await response.json();
         
-        const contract = new ethers.Contract(TOKEN_ADDRESS, BROAD_TRACKER_ABI, provider);
+        if (json && json.data && json.data.attributes) {
+            const attributes = json.data.attributes;
+            let realMarketCap = Math.floor(parseFloat(attributes.market_cap_usd || 0));
+            
+            // Backup protection if pool cap indexer is processing blocks:
+            if (realMarketCap === 0 && attributes.price_usd) {
+                let circulatingSupply = 1000000000; // Adjust placeholder to match your total token supply if needed
+                realMarketCap = Math.floor(parseFloat(attributes.price_usd) * circulatingSupply);
+            }
 
-        contract.on("Transfer", (from, to, value) => {
-            let tradeSize = Math.floor(Math.random() * 320) + 110;
-            executeGlobalCombatUpdate(true, tradeSize);
-        });
+            if (realMarketCap > 0 && realMarketCap !== globalState.marketCap) {
+                let previousCap = globalState.marketCap;
+                globalState.marketCap = realMarketCap;
+                globalState.tokensBurned = Math.floor(realMarketCap * 450); // Relative scale burn output tracking
 
+                let oldMultiple = Math.floor(previousCap / INCREMENT);
+                let newMultiple = Math.floor(globalState.marketCap / INCREMENT);
+
+                if (newMultiple > oldMultiple) {
+                    globalState.jeetsKilled = newMultiple;
+                    io.emit('boss_kill', { globalState, amount: (realMarketCap - previousCap) });
+                    console.log(`🔥 OBLITERATED: Milestone cross mapped at $${realMarketCap}`);
+                } else if (realMarketCap > previousCap) {
+                    io.emit('buy_order', { globalState, amount: (realMarketCap - previousCap) });
+                    console.log(`🟢 BUY EVENT: Market cap pushed up to $${realMarketCap}`);
+                } else if (realMarketCap < previousCap) {
+                    io.emit('sell_order', { globalState, amount: (previousCap - realMarketCap) });
+                    console.log(`🔴 SELL EVENT: Market cap dropped down to $${realMarketCap}`);
+                }
+            }
+        }
     } catch (error) {
-        console.log("RPC lagging, fallback active.");
-    }
-
-    // 2. Continuous Ecosystem Heartbeat (Ensures constant action and live updates)
-    setInterval(() => {
-        let isBuy = Math.random() > 0.28; // Heavily biases buys so the Ninja keeps winning
-        let tradeSize = Math.floor(Math.random() * 260) + 60;
-        executeGlobalCombatUpdate(isBuy, tradeSize);
-    }, 4500); // Triggers a new attack action automatically every 4.5 seconds
-}
-
-function executeGlobalCombatUpdate(isBuy, valueAmount) {
-    let previousCap = globalState.marketCap;
-
-    if (isBuy) {
-        globalState.marketCap += valueAmount;
-        globalState.tokensBurned += Math.floor(valueAmount * 850);
-        
-        let oldMultiple = Math.floor(previousCap / INCREMENT);
-        let newMultiple = Math.floor(globalState.marketCap / INCREMENT);
-        
-        if (newMultiple > oldMultiple) {
-            globalState.jeetsKilled++;
-            io.emit('boss_kill', { globalState, amount: valueAmount });
-        } else {
-            io.emit('buy_order', { globalState, amount: valueAmount });
-        }
-    } else {
-        if (globalState.marketCap > 300) {
-            globalState.marketCap = Math.max(100, globalState.marketCap - valueAmount);
-        }
-        io.emit('sell_order', { globalState, amount: valueAmount });
+        console.error("API Pipeline congestion, retrying sync in next loop sequence...", error);
     }
 }
+
+// Check the token's trading pool data loop every 4.5 seconds for instant responses
+setInterval(fetchLiveOnChainData, 4500);
 
 io.on('connection', (socket) => {
     socket.emit('state_sync', globalState);
 });
 
 server.listen(PORT, () => {
-    console.log(`Live 24/7 Node running on Port ${PORT}`);
-    startBlockchainEngine();
+    console.log(`Live 24/7 Pool Router Tracking Hub active on Port ${PORT}`);
+    fetchLiveOnChainData(); // Initial immediate scan on server run
 });
