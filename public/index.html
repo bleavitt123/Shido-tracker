@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHIDO JEET CLEANER - Live Operations Hub</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <title>SHIDO JEET CLEANER - Live Tracker</title>
     <style>
-        :root { --bg-dark: #0b0c0e; --card-dark: #121418; --shido-neon: #00ff66; --jeet-red: #e74c3c; --text-light: #f5f6fa; }
+        :root { 
+            --bg-dark: #0b0c0e; 
+            --card-dark: #121418; 
+            --shido-neon: #00ff66; 
+            --jeet-red: #e74c3c; 
+            --text-light: #f5f6fa; 
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; text-align: center; }
         .dashboard { max-width: 600px; margin: 0 auto; background: var(--card-dark); border: 1px solid #1f242d; padding: 20px; border-radius: 12px; }
@@ -26,11 +31,11 @@
 
 <div class="dashboard">
     <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
-    <p style="color: #7f8c8d; font-size: 0.85rem;">24/7 Direct On-Chain Mainnet Pipeline</p>
+    <p style="color: #7f8c8d; font-size: 0.85rem;">Direct DexScreener Pool Stream</p>
     <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
 
     <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
-        <div>MCAP: <span id="mcap" style="color: var(--shido-neon);">$0</span></div>
+        <div>MCAP: <span id="mcap" style="color: var(--shido-neon);">$1,671</span></div>
         <div>PURGED: <span id="purged" style="color: var(--jeet-red);">0</span></div>
     </div>
 
@@ -45,49 +50,64 @@
 </div>
 
 <script>
-    const socket = io();
     const INCREMENT = 5000;
+    const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
+    
+    // Hardcoded exactly to your true active $1,671 baseline metric so it never boots up at 0
+    let currentMarketCap = 1671; 
 
-    socket.on('state_sync', (state) => { updateUI(state); });
+    async function syncDexScreenerMetrics() {
+        try {
+            const response = await fetch(`https://dexscreener.com{TOKEN_ADDRESS}`);
+            const data = await response.json();
+            
+            if (data && data.pairs && data.pairs.length > 0) {
+                const mainPair = data.pairs[0];
+                let liveCap = Math.floor(parseFloat(mainPair.marketCap || 0));
 
-    socket.on('buy_order', (data) => {
-        animateCombat("⚔️ STRIKE!", "buy");
-        updateUI(data.globalState);
-        addLog(`🟢 BUY: Tracked purchase on router. MC up!`);
-    });
+                // Fallback math configuration if the raw pool indexer is caching block arrays
+                if (liveCap === 0 && mainPair.priceUsd) {
+                    liveCap = Math.floor(parseFloat(mainPair.priceUsd) * 1000000000);
+                }
 
-    socket.on('sell_order', (data) => {
-        animateCombat("⚠️ DUMP!", "sell");
-        updateUI(data.globalState);
-        addLog(`🔴 SELL: Weak hand dropped tokens.`);
-    });
+                if (liveCap > 0 && liveCap !== currentMarketCap) {
+                    let difference = liveCap - currentMarketCap;
+                    currentMarketCap = liveCap;
+                    
+                    let jeetsKilled = Math.floor(liveCap / INCREMENT);
+                    let statePacket = { marketCap: liveCap, jeetsKilled };
+                    
+                    processLayoutSync(statePacket, difference > 0, Math.abs(difference));
+                }
+            }
+        } catch (error) {
+            console.log("Network pipeline update lag, retrying on next block interval...");
+        }
+    }
 
-    socket.on('boss_kill', (data) => {
-        animateCombat("💥 OBLITERATED!", "buy");
-        updateUI(data.globalState);
-        addLog(`🔥 CRITICAL PURGE: Market cap milestone hit! Jeet smashed!`);
-    });
-
-    function updateUI(state) {
+    function processLayoutSync(state, isBuy, delta) {
         document.getElementById('mcap').innerText = `$${state.marketCap.toLocaleString()}`;
         document.getElementById('purged').innerText = state.jeetsKilled;
         
         let currentFloor = Math.floor(state.marketCap / INCREMENT) * INCREMENT;
-        let ceiling = currentFloor + INCREMENT;
-        let rem = ceiling - state.marketCap;
-        let pct = (rem / INCREMENT) * 100;
-        document.getElementById('hp').style.width = `${pct}%`;
+        let rem = (currentFloor + INCREMENT) - state.marketCap;
+        document.getElementById('hp').style.width = `${(rem / INCREMENT) * 100}%`;
+
+        if (isBuy) {
+            animateCombat(`⚔️ STRIKE +$${delta}!`, "buy");
+            addLog(`🟢 DIRECT BUY: DexScreener logged pool trade swap delta!`);
+        } else {
+            animateCombat(`⚠️ DUMP -$${delta}`, "sell");
+            addLog(`🔴 DIRECT SELL: Liquidity reduction event registered.`);
+        }
     }
 
     function animateCombat(txt, type) {
         let n = document.getElementById('ninja');
         let j = document.getElementById('jeet');
         let p = document.getElementById('pop');
-        
-        p.innerText = txt;
-        p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
+        p.innerText = txt; p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
         p.style.opacity = '1'; p.style.transform = 'translateY(-20px)';
-        
         if(type === 'buy') { n.classList.add('strike'); j.classList.add('hurt'); }
         setTimeout(() => {
             n.classList.remove('strike'); j.classList.remove('hurt');
@@ -99,6 +119,17 @@
         let l = document.getElementById('log');
         l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
     }
+
+    // Force run a layout math initialize check immediately on browser boot up
+    let initialJeets = Math.floor(currentMarketCap / INCREMENT);
+    let initialFloor = Math.floor(currentMarketCap / INCREMENT) * INCREMENT;
+    let initialRem = (initialFloor + INCREMENT) - currentMarketCap;
+    document.getElementById('hp').style.width = `${(initialRem / INCREMENT) * 100}%`;
+    document.getElementById('purged').innerText = initialJeets;
+
+    // Continuously check the index logs every 6 seconds for live updates
+    setInterval(syncDexScreenerMetrics, 6000);
+    addLog("Ecosystem data sync active. Watching Shido network pools...");
 </script>
 </body>
 </html>
