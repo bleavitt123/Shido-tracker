@@ -1,25 +1,123 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHIDO JEET CLEANER - Live Tracker</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root { --bg-dark: #0b0c0e; --card-dark: #121418; --shido-neon: #00ff66; --jeet-red: #e74c3c; --text-light: #f5f6fa; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; text-align: center; }
+        .dashboard { max-width: 600px; margin: 0 auto; background: var(--card-dark); border: 1px solid #1f242d; padding: 20px; border-radius: 12px; }
+        .ca { font-family: monospace; color: #2ecc71; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; display: block; margin: 10px 0; font-size: 0.85rem; }
+        .arena { height: 180px; background: #161a21; border-radius: 8px; margin: 15px 0; display: flex; justify-content: space-around; align-items: center; position: relative; overflow: hidden; border: 1px solid #252d3a; }
+        .sprite { font-size: 3.5rem; transition: transform 0.1s ease; }
+        .pop { position: absolute; font-size: 1.5rem; font-weight: bold; font-style: italic; opacity: 0; transition: all 0.5s ease; pointer-events: none; }
+        .hp-track { background: #2c3e50; height: 15px; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+        .hp-fill { background: linear-gradient(90deg, #e74c3c, #ff7675); height: 100%; width: 100%; transition: width 0.2s; }
+        .log { background: #0b0c0e; height: 120px; overflow-y: auto; text-align: left; padding: 10px; font-family: monospace; font-size: 0.8rem; border-radius: 6px; border: 1px solid #1f242d; margin-top: 15px; }
+        .buy { color: var(--shido-neon); } .sell { color: var(--jeet-red); }
+        .strike { transform: translateX(40px) scale(1.1); }
+        .hurt { transform: translateX(10px) color: #ff7675; }
+    </style>
+</head>
+<body>
 
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+<div class="dashboard">
+    <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
+    <p style="color: #7f8c8d; font-size: 0.85rem;">Direct DexScreener Pool Stream</p>
+    <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
 
-const PORT = process.env.PORT || 3000;
+    <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
+        <div>MCAP: <span id="mcap" style="color: var(--shido-neon);">$1,671</span></div>
+        <div>PURGED: <span id="purged" style="color: var(--jeet-red);">0</span></div>
+    </div>
 
-// Tell the hosting platform to look straight into your public UI folder
-app.use(express.static(path.join(__dirname, 'public')));
+    <div class="arena">
+        <div class="pop" id="pop"></div>
+        <div class="sprite" id="ninja">🥷</div>
+        <div class="sprite" id="jeet">🤡</div>
+    </div>
 
-// Simple cross-user interaction gateway relay
-io.on('connection', (socket) => {
-    socket.on('blockchain_tx', (data) => {
-        // Echoes transaction hits instantly to everyone currently viewing the page
-        socket.broadcast.emit('sync_tx', data);
-    });
-});
+    <div class="hp-track"><div class="hp-fill" id="hp"></div></div>
+    <div class="log" id="log"></div>
+</div>
 
-server.listen(PORT, () => {
-    console.log(`Shido Multi-User Delivery Node running perfectly on Port ${PORT}`);
-});
+<script>
+    const socket = io();
+    const INCREMENT = 5000;
+    const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1";
+    
+    let currentMarketCap = 1671; // Active baseline initialization marker
+
+    async function syncDexScreenerMetrics() {
+        try {
+            const response = await fetch(`https://dexscreener.com{TOKEN_ADDRESS}`);
+            const data = await response.json();
+            
+            if (data && data.pairs && data.pairs.length > 0) {
+                const mainPair = data.pairs[0];
+                let liveCap = Math.floor(parseFloat(mainPair.marketCap || 0));
+
+                // If pool indexing is catching up, derive values directly from the price point
+                if (liveCap === 0 && mainPair.priceUsd) {
+                    liveCap = Math.floor(parseFloat(mainPair.priceUsd) * 1000000000);
+                }
+
+                if (liveCap > 0 && liveCap !== currentMarketCap) {
+                    let difference = liveCap - currentMarketCap;
+                    currentMarketCap = liveCap;
+                    
+                    let jeetsKilled = Math.floor(liveCap / INCREMENT);
+                    let statePacket = { marketCap: liveCap, jeetsKilled };
+                    
+                    processLayoutSync(statePacket, difference > 0, Math.abs(difference));
+                }
+            }
+        } catch (error) {
+            console.log("Polling connection lag, retrying next block interval...");
+        }
+    }
+
+    function processLayoutSync(state, isBuy, delta) {
+        document.getElementById('mcap').innerText = `$${state.marketCap.toLocaleString()}`;
+        document.getElementById('purged').innerText = state.jeetsKilled;
+        
+        let currentFloor = Math.floor(state.marketCap / INCREMENT) * INCREMENT;
+        let rem = (currentFloor + INCREMENT) - state.marketCap;
+        document.getElementById('hp').style.width = `${(rem / INCREMENT) * 100}%`;
+
+        if (isBuy) {
+            animateCombat(`⚔️ STRIKE +$${delta}!`, "buy");
+            addLog(`🟢 DIRECT BUY: DexScreener logged pool trade swap delta!`);
+        } else {
+            animateCombat(`⚠️ DUMP -$${delta}`, "sell");
+            addLog(`🔴 DIRECT SELL: Liquidity reduction event registered.`);
+        }
+    }
+
+    function animateCombat(txt, type) {
+        let n = document.getElementById('ninja');
+        let j = document.getElementById('jeet');
+        let p = document.getElementById('pop');
+        p.innerText = txt; p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
+        p.style.opacity = '1'; p.style.transform = 'translateY(-20px)';
+        if(type === 'buy') { n.classList.add('strike'); j.classList.add('hurt'); }
+        setTimeout(() => {
+            n.classList.remove('strike'); j.classList.remove('hurt');
+            p.style.opacity = '0'; p.style.transform = 'translateY(0)';
+        }, 300);
+    }
+
+    function addLog(msg) {
+        let l = document.getElementById('log');
+        l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
+    }
+
+    // Continuously check the index logs every 5 seconds for updates
+    setInterval(syncDexScreenerMetrics, 5000);
+    addLog("Ecosystem data sync online. Awaiting data changes...");
+</script>
+</body>
+</html>
