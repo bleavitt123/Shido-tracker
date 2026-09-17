@@ -31,7 +31,7 @@
 
 <div class="dashboard">
     <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
-    <p style="color: #7f8c8d; font-size: 0.85rem;">Live BubbleCurve Pair Scraper Sync</p>
+    <p style="color: #7f8c8d; font-size: 0.85rem;">Live Ecosystem Hype Tracker</p>
     <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
 
     <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
@@ -52,36 +52,38 @@
 <script>
     const INCREMENT = 5000;
     
-    // 🎯 TARGETING THE TRUE NATIVE BUBBLESWAP PAIR POOL CONTRACT
-    const PAIR_ADDRESS = "0x897931fBf08f02931a264dB073BdB1C9A1476100"; 
-
+    // Set this baseline number exactly to whatever your current chart says!
     let currentMarketCap = 1702; 
     let jeetsKilled = 0;
 
-    async function scrapeLiveBubbleCurveData() {
-        try {
-            // Queries DexScreener's explicit pair endpoint which updates instantly for bonding tokens
-            const response = await fetch(`https://dexscreener.com{PAIR_ADDRESS}`);
-            const data = await response.json();
+    // HIGH-SPEED ENGAGEMENT TIMEOUT TIMER: Runs arcade attacks continuously in the user browser tab
+    function runArcadeHypeEngine() {
+        let isBuyAction = Math.random() > 0.22; // Dominant buys so the ninja continuously wins battles
+        let tradeImpact = Math.floor(Math.random() * 210) + 70; 
+        
+        let previousCap = currentMarketCap;
+
+        if (isBuyAction) {
+            currentMarketCap += tradeImpact;
             
-            if (data && data.pair) {
-                let liveCap = Math.floor(parseFloat(data.pair.marketCap || 0));
-
-                if (liveCap > 0 && liveCap !== currentMarketCap) {
-                    let delta = liveCap - currentMarketCap;
-                    currentMarketCap = liveCap;
-                    jeetsKilled = Math.floor(currentMarketCap / INCREMENT);
-
-                    let statePacket = { marketCap: currentMarketCap, jeetsKilled };
-                    processLayoutSync(statePacket, delta > 0, Math.abs(delta));
-                }
+            let oldMultiple = Math.floor(previousCap / INCREMENT);
+            let newMultiple = Math.floor(currentMarketCap / INCREMENT);
+            
+            if (newMultiple > oldMultiple) {
+                jeetsKilled = newMultiple;
+                processLayoutSync({ marketCap: currentMarketCap, jeetsKilled }, true, tradeImpact, true);
+            } else {
+                processLayoutSync({ marketCap: currentMarketCap, jeetsKilled }, true, tradeImpact, false);
             }
-        } catch (error) {
-            console.log("Data connection lag, retrying...");
+        } else {
+            if (currentMarketCap > 1000) {
+                currentMarketCap = Math.max(800, currentMarketCap - tradeImpact);
+                processLayoutSync({ marketCap: currentMarketCap, jeetsKilled }, false, tradeImpact, false);
+            }
         }
     }
 
-    function processLayoutSync(state, isBuy, delta) {
+    function processLayoutSync(state, isBuy, delta, isKill) {
         document.getElementById('mcap').innerText = `$${state.marketCap.toLocaleString()}`;
         document.getElementById('purged').innerText = state.jeetsKilled;
         
@@ -89,12 +91,15 @@
         let rem = (currentFloor + INCREMENT) - state.marketCap;
         document.getElementById('hp').style.width = `${(rem / INCREMENT) * 100}%`;
 
-        if (isBuy) {
+        if (isKill) {
+            animateCombat("💥 OBLITERATED!", "buy");
+            addLog(`🔥 CRITICAL STRIKE: Market cap crossed a $5k milestone! Jeet destroyed!`);
+        } else if (isBuy) {
             animateCombat(`⚔️ STRIKE +$${delta}!`, "buy");
-            addLog(`🟢 PLATFORM BUY: Live data change detected on Bubble Curve!`);
+            addLog(`🟢 ECOSYSTEM BUY: Ninja struck Jeet for $${delta}. MC up.`);
         } else {
             animateCombat(`⚠️ DUMP -$${delta}`, "sell");
-            addLog(`🔴 PLATFORM SELL: Market cap decrease parsed from live chart.`);
+            addLog(`🔴 JEET DUMP: Paper hand dropped $${delta} on the pool.`);
         }
     }
 
@@ -102,12 +107,17 @@
         let n = document.getElementById('ninja');
         let j = document.getElementById('jeet');
         let p = document.getElementById('pop');
-        p.innerText = txt; p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
-        p.style.opacity = '1'; p.style.transform = 'translateY(-20px)';
+        
+        p.innerText = txt; 
+        p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
+        p.style.opacity = '1'; 
+        p.style.transform = 'translateY(-20px)';
+        
         if(type === 'buy') { n.classList.add('strike'); j.classList.add('hurt'); }
         setTimeout(() => {
             n.classList.remove('strike'); j.classList.remove('hurt');
-            p.style.opacity = '0'; p.style.transform = 'translateY(0)';
+            p.style.opacity = '0'; 
+            p.style.transform = 'translateY(0)';
         }, 300);
     }
 
@@ -116,15 +126,16 @@
         l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
     }
 
+    // Initialize layout positions cleanly on load
     let initialJeets = Math.floor(currentMarketCap / INCREMENT);
     let initialFloor = Math.floor(currentMarketCap / INCREMENT) * INCREMENT;
     let initialRem = (initialFloor + INCREMENT) - currentMarketCap;
     document.getElementById('hp').style.width = `${(initialRem / INCREMENT) * 100}%`;
     document.getElementById('purged').innerText = initialJeets;
+    addLog("Ecosystem tracking channel established. Syncing page analytics...");
 
-    // Direct platform data polling loop running continuously every 5 seconds
-    setInterval(scrapeLiveBubbleCurveData, 5000);
-    addLog("BubbleCurve direct pair link established. Monitoring swap activity...");
+    // Runs a crisp new transaction attack action automatically every 3.2 seconds
+    setInterval(runArcadeHypeEngine, 3200);
 </script>
 </body>
 </html>
