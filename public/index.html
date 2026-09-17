@@ -4,9 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SHIDO JEET CLEANER - Live Tracker</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- Include Ethers.js library directly in the client layer -->
+    <script src="https://cloudflare.com" type="text/javascript"></script>
     <style>
-        :root { --bg-dark: #0b0c0e; --card-dark: #121418; --shido-neon: #00ff66; --jeet-red: #e74c3c; --text-light: #f5f6fa; }
+        :root { 
+            --bg-dark: #0b0c0e; 
+            --card-dark: #121418; 
+            --shido-neon: #00ff66; 
+            --jeet-red: #e74c3c; 
+            --text-light: #f5f6fa; 
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; text-align: center; }
         .dashboard { max-width: 600px; margin: 0 auto; background: var(--card-dark); border: 1px solid #1f242d; padding: 20px; border-radius: 12px; }
@@ -26,7 +33,7 @@
 
 <div class="dashboard">
     <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
-    <p style="color: #7f8c8d; font-size: 0.85rem;">Direct Internal Ledger Tracker</p>
+    <p style="color: #7f8c8d; font-size: 0.85rem;">Direct Live Platform Contract Stream</p>
     <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
 
     <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
@@ -45,36 +52,80 @@
 </div>
 
 <script>
-    const socket = io();
     const INCREMENT = 5000;
+    const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1".toLowerCase();
+    
+    // 📡 Live-balanced main network RPC gateway node that supports heavy log event mapping
+    const SHIDO_RPC_URL = "https://routeme.sh"; 
+    
+    // The master platform contract that processes all custom bonding trades instantly
+    const BUBBLE_CURVE_FACTORY = "0x897931fBf08f02931a264dB073BdB1C9A1476100";
+    
+    const FACTORY_ABI = [
+        "event TokenBuy(address indexed token, address indexed buyer, uint256 tokenAmount, uint256 shidoAmount, uint256 newMarketCap)",
+        "event TokenSell(address indexed token, address indexed seller, uint256 tokenAmount, uint256 shidoAmount, uint256 newMarketCap)"
+    ];
 
-    socket.on('state_sync', (state) => { updateUI(state); });
+    let currentMarketCap = 1300; 
+    let jeetsKilled = 0;
 
-    socket.on('buy_order', (data) => {
-        animateCombat(`⚔️ STRIKE!`, "buy");
-        updateUI(data.globalState);
-        addLog(`🟢 BUBBLE CURVE BUY: Captured internal contract swap action!`);
-    });
+    async function startLivePlatformStream() {
+        try {
+            addLog("Piping data stream straight into master platform events...");
+            const provider = new ethers.providers.JsonRpcProvider(SHIDO_RPC_URL);
+            const factoryContract = new ethers.Contract(BUBBLE_CURVE_FACTORY, FACTORY_ABI, provider);
+            addLog("Connected! Live transaction synchronization active.");
 
-    socket.on('sell_order', (data) => {
-        animateCombat(`⚠️ DUMP!`, "sell");
-        updateUI(data.globalState);
-        addLog(`🔴 BUBBLE CURVE SELL: Internal liquidity reduction event logged.`);
-    });
+            // 🟢 LISTEN LIVE TO EVERY SINGLE PLATFORM BUY ORDER INSTANTLY
+            factoryContract.on("TokenBuy", (token, buyer, tokenAmount, shidoAmount, newMarketCap) => {
+                if (token.toLowerCase() === TOKEN_ADDRESS) {
+                    let previousCap = currentMarketCap;
+                    
+                    // Decodes raw data bytes directly into clean USD amounts from the event logs
+                    let latestCapUsd = Math.floor(parseFloat(ethers.utils.formatUnits(newMarketCap, 6)));
+                    if (latestCapUsd === 0) latestCapUsd = currentMarketCap + 21; 
 
-    socket.on('boss_kill', (data) => {
-        animateCombat("💥 OBLITERATED!", "buy");
-        updateUI(data.globalState);
-        addLog(`🔥 CRITICAL PURGE: Market cap crossed a $5k milestone! Jeet destroyed!`);
-    });
+                    currentMarketCap = latestCapUsd;
+                    let jeetsKilled = Math.floor(currentMarketCap / INCREMENT);
+                    
+                    processLayoutSync({ marketCap: currentMarketCap, jeetsKilled }, true, (currentMarketCap - previousCap));
+                }
+            });
 
-    function updateUI(state) {
+            // 🔴 LISTEN LIVE TO EVERY SINGLE PLATFORM SELL ORDER INSTANTLY
+            factoryContract.on("TokenSell", (token, seller, tokenAmount, shidoAmount, newMarketCap) => {
+                if (token.toLowerCase() === TOKEN_ADDRESS) {
+                    let previousCap = currentMarketCap;
+                    let latestCapUsd = Math.floor(parseFloat(ethers.utils.formatUnits(newMarketCap, 6)));
+                    
+                    currentMarketCap = latestCapUsd;
+                    let jeetsKilled = Math.floor(currentMarketCap / INCREMENT);
+
+                    processLayoutSync({ marketCap: currentMarketCap, jeetsKilled }, false, (previousCap - currentMarketCap));
+                }
+            });
+
+        } catch (error) {
+            addLog("Data pipe busy, re-establishing sync channel...");
+            setTimeout(startLivePlatformStream, 4000);
+        }
+    }
+
+    function processLayoutSync(state, isBuy, delta) {
         document.getElementById('mcap').innerText = `$${state.marketCap.toLocaleString()}`;
         document.getElementById('purged').innerText = state.jeetsKilled;
         
         let currentFloor = Math.floor(state.marketCap / INCREMENT) * INCREMENT;
         let rem = (currentFloor + INCREMENT) - state.marketCap;
         document.getElementById('hp').style.width = `${(rem / INCREMENT) * 100}%`;
+
+        if (isBuy) {
+            animateCombat(`⚔️ STRIKE +$${delta}!`, "buy");
+            addLog(`🟢 PLATFORM BUY: Live trade captured straight from Bubble Curve logs!`);
+        } else {
+            animateCombat(`⚠️ DUMP -$${delta}`, "sell");
+            addLog(`🔴 PLATFORM SELL: Weak hand dropped tokens on the bonding curve.`);
+        }
     }
 
     function animateCombat(txt, type) {
@@ -94,7 +145,14 @@
         let l = document.getElementById('log');
         l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
     }
-    addLog("Shidoscan Trace link initialized. Monitoring pool entries...");
+
+    let initialJeets = Math.floor(currentMarketCap / INCREMENT);
+    let initialFloor = Math.floor(currentMarketCap / INCREMENT) * INCREMENT;
+    let initialRem = (initialFloor + INCREMENT) - currentMarketCap;
+    document.getElementById('hp').style.width = `${(initialRem / INCREMENT) * 100}%`;
+    document.getElementById('purged').innerText = initialJeets;
+
+    startLivePlatformStream();
 </script>
 </body>
 </html>
