@@ -31,7 +31,7 @@
 
 <div class="dashboard">
     <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
-    <p style="color: #7f8c8d; font-size: 0.85rem;">Live BubbleCurve Page Scraper Sync</p>
+    <p style="color: #7f8c8d; font-size: 0.85rem;">Live BubbleCurve Pair Scraper Sync</p>
     <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
 
     <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
@@ -51,21 +51,21 @@
 
 <script>
     const INCREMENT = 5000;
-    const TOKEN_ADDRESS = "0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1".toLowerCase();
+    
+    // 🎯 TARGETING THE TRUE NATIVE BUBBLESWAP PAIR POOL CONTRACT
+    const PAIR_ADDRESS = "0x897931fBf08f02931a264dB073BdB1C9A1476100"; 
 
     let currentMarketCap = 1702; 
     let jeetsKilled = 0;
 
-    // 📡 SCRAPE BUBBLECURVE DATA DIRECTLY FROM THEIR WEB ENDPOINT
     async function scrapeLiveBubbleCurveData() {
         try {
-            // Pull data straight from the backend endpoints feeding the curve charts
-            const response = await fetch(`https://dexscreener.com{TOKEN_ADDRESS}`);
+            // Queries DexScreener's explicit pair endpoint which updates instantly for bonding tokens
+            const response = await fetch(`https://dexscreener.com{PAIR_ADDRESS}`);
             const data = await response.json();
             
-            if (data && data.pairs && data.pairs.length > 0) {
-                // Read the exact market cap value currently sitting inside the platform index arrays
-                let liveCap = Math.floor(parseFloat(data.pairs[0].marketCap || 0));
+            if (data && data.pair) {
+                let liveCap = Math.floor(parseFloat(data.pair.marketCap || 0));
 
                 if (liveCap > 0 && liveCap !== currentMarketCap) {
                     let delta = liveCap - currentMarketCap;
@@ -77,7 +77,7 @@
                 }
             }
         } catch (error) {
-            console.log("Scrape pipeline synchronization delay, retrying...");
+            console.log("Data connection lag, retrying...");
         }
     }
 
@@ -116,16 +116,15 @@
         l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
     }
 
-    // Instantly format your baseline numbers layout on boot
     let initialJeets = Math.floor(currentMarketCap / INCREMENT);
     let initialFloor = Math.floor(currentMarketCap / INCREMENT) * INCREMENT;
     let initialRem = (initialFloor + INCREMENT) - currentMarketCap;
     document.getElementById('hp').style.width = `${(initialRem / INCREMENT) * 100}%`;
     document.getElementById('purged').innerText = initialJeets;
 
-    // Direct platform data polling loop running continuously every 6 seconds
-    setInterval(scrapeLiveBubbleCurveData, 6000);
-    addLog("BubbleCurve direct data connection established. Syncing page analytics...");
+    // Direct platform data polling loop running continuously every 5 seconds
+    setInterval(scrapeLiveBubbleCurveData, 5000);
+    addLog("BubbleCurve direct pair link established. Monitoring swap activity...");
 </script>
 </body>
 </html>
