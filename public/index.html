@@ -3,97 +3,225 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHIDO JEET CLEANER - Live Tracker</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <title>The Gauntlet Protocol | \$GTLET</title>
     <style>
-        :root { --bg-dark: #0b0c0e; --card-dark: #121418; --shido-neon: #00ff66; --jeet-red: #e74c3c; --text-light: #f5f6fa; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: var(--bg-dark); color: var(--text-light); padding: 20px; text-align: center; }
-        .dashboard { max-width: 600px; margin: 0 auto; background: var(--card-dark); border: 1px solid #1f242d; padding: 20px; border-radius: 12px; }
-        .ca { font-family: monospace; color: #2ecc71; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; display: block; margin: 10px 0; font-size: 0.85rem; word-break: break-all; }
-        .arena { height: 180px; background: #161a21; border-radius: 8px; margin: 15px 0; display: flex; justify-content: space-around; align-items: center; position: relative; overflow: hidden; border: 1px solid #252d3a; }
-        .sprite { font-size: 3.5rem; transition: transform 0.1s ease; }
-        .pop { position: absolute; font-size: 1.5rem; font-weight: bold; font-style: italic; opacity: 0; transition: all 0.5s ease; pointer-events: none; z-index: 10; }
-        .hp-track { background: #2c3e50; height: 15px; border-radius: 10px; overflow: hidden; margin-top: 10px; }
-        .hp-fill { background: linear-gradient(90deg, #e74c3c, #ff7675); height: 100%; width: 100%; transition: width 0.2s; }
-        .log { background: #0b0c0e; height: 120px; overflow-y: auto; text-align: left; padding: 10px; font-family: monospace; font-size: 0.8rem; border-radius: 6px; border: 1px solid #1f242d; margin-top: 15px; }
-        .buy { color: var(--shido-neon); } .sell { color: var(--jeet-red); }
-        .strike { transform: translateX(40px) scale(1.1); }
-        .hurt { transform: translateX(10px) color: #ff7675; }
+        :root {
+            --bg-dark: #050508;
+            --panel-bg: #0f111a;
+            --gauntlet-neon: #ff3366;
+            --gauntlet-blue: #00f0ff;
+            --text-gray: #8a8f98;
+            --text-light: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .header-box {
+            text-align: center;
+            margin: 40px 0;
+            border: 2px solid var(--gauntlet-neon);
+            padding: 20px 40px;
+            background: rgba(255, 51, 102, 0.05);
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.2);
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            margin: 0 0 10px 0;
+            letter-spacing: 4px;
+            color: var(--gauntlet-neon);
+            text-shadow: 0 0 10px var(--gauntlet-neon);
+        }
+
+        .subtitle {
+            color: var(--gauntlet-blue);
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+
+        .main-frame {
+            width: 100%;
+            max-width: 750px;
+            background: var(--panel-bg);
+            border: 1px solid #1f2335;
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .simulator-section {
+            background: #08090d;
+            border-left: 4px solid var(--gauntlet-blue);
+            padding: 15px 20px;
+            margin-bottom: 30px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--gauntlet-blue);
+        }
+
+        input[type=range] {
+            width: 100%;
+            margin-bottom: 15px;
+            accent-color: var(--gauntlet-blue);
+        }
+
+        .milestone-container {
+            margin-top: 20px;
+        }
+
+        .milestone-card {
+            border: 1px solid #1f2335;
+            padding: 15px;
+            margin-bottom: 12px;
+            background: rgba(255,255,255,0.02);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .milestone-card.active {
+            border-color: var(--gauntlet-neon);
+            background: rgba(255, 51, 102, 0.03);
+        }
+
+        .milestone-info h4 {
+            margin: 0 0 5px 0;
+            font-size: 1.1rem;
+        }
+
+        .milestone-info p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-gray);
+        }
+
+        .status-tag {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border: 1px solid #333;
+            color: var(--text-gray);
+        }
+
+        .active .status-tag {
+            border-color: var(--gauntlet-neon);
+            color: var(--gauntlet-neon);
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(255, 51, 102, 0.5);
+        }
+
+        .manifesto {
+            margin-top: 30px;
+            border-top: 1px dashed #1f2335;
+            padding-top: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text-gray);
+        }
     </style>
 </head>
 <body>
 
-<div class="dashboard">
-    <h2 style="color: var(--shido-neon);">🥷 SHIDO JEET CLEANER</h2>
-    <p style="color: #7f8c8d; font-size: 0.85rem;">Direct Server-Side Blockchain Sync</p>
-    <div class="ca">0xF3983368eA8926e2Ec6d3846047A8ac26D4c46c1</div>
-
-    <div style="display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold;">
-        <div>MCAP: <span id="mcap" style="color: var(--shido-neon);">\$1,300</span></div>
-        <div>PURGED: <span id="purged" style="color: var(--jeet-red);">0</span></div>
+    <div class="header-box">
+        <h1>THE GAUNTLET</h1>
+        <div class="subtitle">RUN THE LIQUIDITY MATRIX : \$GTLET</div>
     </div>
 
-    <div class="arena">
-        <div class="pop" id="pop"></div>
-        <div class="sprite" id="ninja">🥷</div>
-        <div class="sprite" id="jeet">🤡</div>
+    <div class="main-frame">
+        
+        <!-- Live Engine Simulation Workspace -->
+        <div class="simulator-section">
+            <div class="slider-label">
+                <span>SIMULATE CURRENT MARKET CAP:</span>
+                <span id="cap-val">\$0</span>
+            </div>
+            <input type="range" id="cap-slider" min="0" max="25000" step="5000" value="0">
+        </div>
+
+        <!-- Milestones Render Matrix -->
+        <div class="milestone-container" id="matrix">
+            <!-- Stage 1 -->
+            <div class="milestone-card" id="m-5000">
+                <div class="milestone-info">
+                    <h4>STAGE 1: \$5,000 MCAP</h4>
+                    <p>Unlocks: Live Diamond-Hand Analytics Leaderboard on website.</p>
+                </div>
+                <div class="status-tag" id="s-5000">LOCKED</div>
+            </div>
+            <!-- Stage 2 -->
+            <div class="milestone-card" id="m-10000">
+                <div class="milestone-info">
+                    <h4>STAGE 2: \$10,000 MCAP</h4>
+                    <p>Unlocks: Advanced Telegram Buy-Streak Tracking Bot.</p>
+                </div>
+                <div class="status-tag" id="s-10000">LOCKED</div>
+            </div>
+            <!-- Stage 3 -->
+            <div class="milestone-card" id="m-15000">
+                <div class="milestone-info">
+                    <h4>STAGE 3: \$15,000 MCAP</h4>
+                    <p>Unlocks: Alpha Token Gated Dashboard & Network Monitor.</p>
+                </div>
+                <div class="status-tag" id="s-15000">LOCKED</div>
+            </div>
+            <!-- Stage 4 -->
+            <div class="milestone-card" id="m-20000">
+                <div class="milestone-info">
+                    <h4>STAGE 4: \$20,000 MCAP</h4>
+                    <p>Unlocks: Algorithmic Community Content Multiplier Suite.</p>
+                </div>
+                <div class="status-tag" id="s-20000">LOCKED</div>
+            </div>
+            <!-- Final Stage -->
+            <div class="milestone-card" id="m-25000">
+                <div class="milestone-info">
+                    <h4>FINAL BRIDGE: GRADUATION</h4>
+                    <p>Unlocks: Migration to Shido DEX, Permanent LP Lock & Fee Discounts.</p>
+                </div>
+                <div class="status-tag" id="s-25000">LOCKED</div>
+            </div>
+        </div>
+
+        <div class="manifesto">
+            [SYS_MSG]: The Gauntlet Protocol is a gamified fair-launch model built on the Bubble Curve network. No team tokens. No developer seed allocations. As the curve expands through the milestone gates, operational system components unlock programmatically. Fail to hold, and you fail the Gauntlet.
+        </div>
     </div>
 
-    <div class="hp-track"><div class="hp-fill" id="hp"></div></div>
-    <div class="log" id="log"></div>
-</div>
+    <script>
+        const slider = document.getElementById('cap-slider');
+        const capVal = document.getElementById('cap-val');
+        const steps =;
 
-<script>
-    const socket = io();
-    const INCREMENT = 5000;
+        slider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            capVal.innerText = val === 25000 ? "GRADUATION TARGET" : "\$" + val.toLocaleString();
 
-    socket.on('state_sync', (state) => {
-        updateInterfaceDisplay(state);
-    });
-
-    socket.on('live_tx_event', (data) => {
-        updateInterfaceDisplay(data.globalState);
-        
-        if (data.isKill) {
-            animateCombat("💥 OBLITERATED!", "buy");
-            addLog(`🔥 MILESTONE CROSS: Market cap threshold smashed! Jeet destroyed!`);
-        } else if (data.isBuy) {
-            animateCombat(`⚔️ STRIKE +$${data.delta}!`, "buy");
-            addLog(`🟢 LIVE BUY: Direct on-chain transaction tracked! MC up +$${data.delta}.`);
-        } else {
-            animateCombat(`⚠️ DUMP -$${data.delta}`, "sell");
-            addLog(`🔴 LIVE SELL: Token removal event registered on the chart.`);
-        }
-    });
-
-    function updateInterfaceDisplay(state) {
-        document.getElementById('mcap').innerText = `$${state.marketCap.toLocaleString()}`;
-        document.getElementById('purged').innerText = state.jeetsKilled;
-        
-        let currentFloor = Math.floor(state.marketCap / INCREMENT) * INCREMENT;
-        let rem = (currentFloor + INCREMENT) - state.marketCap;
-        document.getElementById('hp').style.width = `${(rem / INCREMENT) * 100}%`;
-    }
-
-    function animateCombat(txt, type) {
-        let n = document.getElementById('ninja');
-        let j = document.getElementById('jeet');
-        let p = document.getElementById('pop');
-        p.innerText = txt; p.style.color = type === 'buy' ? 'var(--shido-neon)' : 'var(--jeet-red)';
-        p.style.opacity = '1'; p.style.transform = 'translateY(-20px)';
-        if(type === 'buy') { n.classList.add('strike'); j.classList.add('hurt'); }
-        setTimeout(() => {
-            n.classList.remove('strike'); j.classList.remove('hurt');
-            p.style.opacity = '0'; p.style.transform = 'translateY(0)';
-        }, 300);
-    }
-
-    function addLog(msg) {
-        let l = document.getElementById('log');
-        l.innerHTML = `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>` + l.innerHTML;
-    }
-    addLog("Master Server Link secure. Standing by for live transaction blocks...");
-</script>
+            steps.forEach(step => {
+                const card = document.getElementById(`m-${step}`);
+                const status = document.getElementById(`s-${step}`);
+                if (val >= step) {
+                    card.classList.add('active');
+                    status.innerText = step === 25000 ? "READY TO GRADUATE" : "UNLOCKED ✓";
+                } else {
+                    card.classList.remove('active');
+                    status.innerText = "LOCKED";
+                }
+            });
+        });
+    </script>
 </body>
 </html>
